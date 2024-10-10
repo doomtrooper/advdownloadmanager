@@ -7,7 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,25 +34,30 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AdvanceDownloadManagerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(modifier = Modifier.fillMaxSize(), floatingActionButton = {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            startDownloadingFile(
+                                File(
+                                    id = "10",
+                                    name = "test vid",
+//                                    url = "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
+                                    url = "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
+//                                    url = "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf",
+                                )
+                            )
+                        },
+                        icon = { Icon(Icons.Filled.Add, "New Download") },
+                        text = { Text(text = "Download") },
+                    )
+                }) { innerPadding ->
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
-                        Button(
-                            onClick = {
-                                startDownloadingFile(
-                                    File(
-                                        id = "10",
-                                        name = "Pdf File 10 MB",
-                                        type = "PDF",
-                                        url = "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
-                                    )
-                                )
-                            }
-                        ) {
-                            Text(text = "Start download")
-                        }
+
                     }
                 }
             }
@@ -63,13 +73,9 @@ class MainActivity : ComponentActivity() {
         data.apply {
             putString(FileParams.KEY_FILE_NAME, file.name)
             putString(FileParams.KEY_FILE_URL, file.url)
-            putString(FileParams.KEY_FILE_TYPE, file.type)
         }
 
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .setRequiresStorageNotLow(true)
-            .setRequiresBatteryNotLow(true)
             .build()
 
         val fileDownloadWorker = OneTimeWorkRequestBuilder<FileDownloadWorker>()
