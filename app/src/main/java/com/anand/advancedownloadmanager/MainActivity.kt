@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -32,18 +33,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val admViewModel by viewModels<AdmViewModel>() {
+            AdmViewModelFactory(
+                WorkManager.getInstance(
+                    this
+                )
+            )
+        }
         setContent {
             AdvanceDownloadManagerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize(), floatingActionButton = {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            startDownloadingFile(
+                            admViewModel.startDownloadingFile(
                                 File(
                                     id = "10",
                                     name = "test vid",
-//                                    url = "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
-                                    url = "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
-//                                    url = "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf",
+                                    url = listOf(
+                                        "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
+                                        "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
+                                        "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf"
+                                    ).random()
                                 )
                             )
                         },
@@ -62,34 +72,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-
-    private fun startDownloadingFile(
-        file: File,
-    ) {
-        val data = Data.Builder()
-
-        data.apply {
-            putString(FileParams.KEY_FILE_NAME, file.name)
-            putString(FileParams.KEY_FILE_URL, file.url)
-        }
-
-        val constraints = Constraints.Builder()
-            .build()
-
-        val fileDownloadWorker = OneTimeWorkRequestBuilder<FileDownloadWorker>()
-            .setConstraints(constraints)
-            .setInputData(data.build())
-            .build()
-
-        WorkManager
-            .getInstance(this)
-            .enqueueUniqueWork(
-                "oneFileDownloadWork_${System.currentTimeMillis()}",
-                ExistingWorkPolicy.KEEP,
-                fileDownloadWorker
-            )
     }
 }
 
