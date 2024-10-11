@@ -14,10 +14,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
-import java.net.URL
 import java.util.Locale
 
 
@@ -64,7 +66,7 @@ class FileDownloadWorker(
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             return if (uri != null) {
                 val outputStream = resolver.openOutputStream(uri)
-                downloadAndSaveFile(fileUrl, outputStream)
+                downloadAndSaveFileOkHttp(fileUrl, outputStream)
                 uri
             } else {
                 null
@@ -75,39 +77,41 @@ class FileDownloadWorker(
                 fileName
             )
             val fileOutputStream = FileOutputStream(target)
-            downloadAndSaveFile(fileUrl, fileOutputStream)
+            downloadAndSaveFileOkHttp(fileUrl, fileOutputStream)
             return target.toUri()
         }
     }
 
-    private suspend fun downloadAndSaveFile(
+    private suspend fun downloadAndSaveFileOkHttp(
         fileUrl: String,
         outputStream: OutputStream?
     ) {
-        val url = URL(fileUrl)
-        val connection = url.openConnection()
-        connection.connect()
-        // length Of File is used for calculating download progress
-        val contentLength = connection.contentLength
-        println("contentLength: $contentLength")
+        val client = OkHttpClient.Builder().build()
+        val headRequest: Request = Request.Builder().url(fileUrl).head().build()
+        val request: Request = Request.Builder().url(fileUrl).build()
+        val response: Response = client.newCall(request).execute()
+        response.body?.let { responseBody ->
+            val contentLength = responseBody.contentLength()
+            println("okhttp contentLength: $contentLength")
 
-        //here’s the download code
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        var len1: Int
-        var total: Long = 0
-        outputStream.use { out ->
-            connection.getInputStream().use { inputStream ->
-                inputStream?.let {
-                    while ((inputStream.read(buffer).also { len1 = it }) > 0) {
-                        if (contentLength > 0) {
-                            total += len1
-                            val percentCompleted = ((total * 100 / contentLength)).toInt()
-                            println("percentCompleted: $percentCompleted")
-                            setProgress(
-                                Data.Builder().putInt("progress", percentCompleted).build()
-                            )
+            //here’s the download code
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var len1: Int
+            var total: Long = 0
+            outputStream.use { out ->
+                responseBody.byteStream().use { inputStream ->
+                    inputStream.let {
+                        while ((inputStream.read(buffer).also { len1 = it }) > 0) {
+                            if (contentLength > 0) {
+                                total += len1
+                                val percentCompleted = ((total * 100 / contentLength)).toInt()
+                                println("percentCompleted: $percentCompleted")
+                                setProgress(
+                                    Data.Builder().putInt("progress", percentCompleted).build()
+                                )
+                            }
+                            out?.write(buffer)
                         }
-                        out?.write(buffer, 0, len1)
                     }
                 }
             }
