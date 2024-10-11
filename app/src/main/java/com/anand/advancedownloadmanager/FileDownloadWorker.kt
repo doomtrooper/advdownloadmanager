@@ -64,7 +64,7 @@ class FileDownloadWorker(
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             return if (uri != null) {
                 val outputStream = resolver.openOutputStream(uri)
-                extracted(fileUrl, outputStream)
+                downloadAndSaveFile(fileUrl, outputStream)
                 uri
             } else {
                 null
@@ -75,12 +75,12 @@ class FileDownloadWorker(
                 fileName
             )
             val fileOutputStream = FileOutputStream(target)
-            extracted(fileUrl, fileOutputStream)
+            downloadAndSaveFile(fileUrl, fileOutputStream)
             return target.toUri()
         }
     }
 
-    private suspend fun extracted(
+    private suspend fun downloadAndSaveFile(
         fileUrl: String,
         outputStream: OutputStream?
     ) {
