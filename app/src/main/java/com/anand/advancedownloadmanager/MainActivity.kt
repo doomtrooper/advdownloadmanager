@@ -50,9 +50,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     url = listOf(
                                         "https://filesampleshub.com/download/video/mp4/sample3.mp4",
-                                        "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
-                                        "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
-                                        "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf"
+//                                        "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
+//                                        "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
+//                                        "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf"
                                     ).random()
                                 )
                             )
