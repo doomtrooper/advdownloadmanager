@@ -14,8 +14,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,8 +25,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.io.SequenceInputStream
-import java.util.Collections
 import java.util.Locale
 
 
@@ -72,7 +71,12 @@ class FileDownloadWorker(
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             return if (uri != null) {
                 val outputStream = resolver.openOutputStream(uri)
-                downloadAndSaveFileOkHttp(fileUrl, outputStream)
+                downloadAndSaveFileOkHttp(
+                    fileUrl,
+                    outputStream,
+                    fileName,
+                    context.codeCacheDir.path
+                )
                 uri
             } else {
                 null
@@ -83,14 +87,21 @@ class FileDownloadWorker(
                 fileName
             )
             val fileOutputStream = FileOutputStream(target)
-            downloadAndSaveFileOkHttp(fileUrl, fileOutputStream)
+            downloadAndSaveFileOkHttp(
+                fileUrl,
+                fileOutputStream,
+                fileName,
+                context.codeCacheDir.path
+            )
             return target.toUri()
         }
     }
 
     private suspend fun downloadAndSaveFileOkHttp(
         fileUrl: String,
-        outputStream: OutputStream?
+        outputStream: OutputStream?,
+        fileName: String,
+        cacheDir: String? = null
     ) {
         val client = OkHttpClient.Builder().build()
         val headRequest: Request = Request.Builder().url(fileUrl).head().build()
@@ -105,10 +116,12 @@ class FileDownloadWorker(
             val maxThreads = getMaxThreads(contentLengthFromHeadResponse)
             val inputStreams = mutableListOf<InputStream>()
             var contentLength = 0L
+            val files = mutableListOf<Deferred<File>>()
             outputStream.use {
                 withContext(Dispatchers.IO) {
                     for (i in 0 until maxThreads) {
-                        val job = launch {
+                        val fileDeferred = async {
+                            val file = File("$cacheDir$fileName$i.temp")
                             val request: Request =
                                 Request.Builder().url(fileUrl).addHeader("Range",
                                     buildString {
@@ -119,59 +132,45 @@ class FileDownloadWorker(
                                     })
                                     .build()
                             val response: Response = client.newCall(request).execute()
-                            response.body?.let {
-                                contentLength += it.contentLength()
-                                inputStreams.add(it.byteStream())
-                            }
                             println("downloadAndSaveFileOkHttp: $i api started")
+                            response.body?.let {
+                                copyInputStreamToOutputStream(it.byteStream(), file.outputStream())
+                            }
+                            return@async file
                         }
-                        job.join()
-
+                        files.add(fileDeferred)
                     }
-                    val sequenceInputStream =
-                        SequenceInputStream(Collections.enumeration(inputStreams))
-                    outputStream?.let { it1 ->
-                        copyInputStreamToOutputStream(sequenceInputStream,
-                            it1, contentLength
-                        )
-                    }
+                    outputStream?.let { output -> mergeFiles(files, output) }
                 }
             }
             println("done")
         } else {
             val request: Request = Request.Builder().url(fileUrl).build()
             val response: Response = client.newCall(request).execute()
-            copyResponseToOutputStream(response, outputStream)
+            val contentLength = response.body?.contentLength() ?: 0L
+            response.body?.byteStream()?.let {
+                outputStream?.let { out ->
+                    copyInputStreamToOutputStream(
+                        it,
+                        out,
+                        contentLength
+                    )
+                }
+            }
         }
     }
 
-    private suspend fun FileDownloadWorker.copyResponseToOutputStream(
-        response: Response,
-        outputStream: OutputStream?
+    private suspend fun mergeFiles(
+        deferredFiles: MutableList<Deferred<File>>,
+        outputStream: OutputStream
     ) {
-        response.body?.let { responseBody ->
-            val contentLength = responseBody.contentLength()
-            println("okhttp contentLength: $contentLength")
-
-            //here’s the download code
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            var len1: Int
-            var total: Long = 0
-            outputStream.let { out ->
-                responseBody.byteStream().use { inputStream ->
-                    inputStream.let {
-                        while ((inputStream.read(buffer).also { len1 = it }) > 0) {
-                            if (contentLength > 0) {
-                                total += len1
-                                val percentCompleted = ((total * 100 / contentLength)).toInt()
-//                                println("percentCompleted: $percentCompleted")
-                                setProgress(
-                                    Data.Builder().putInt("progress", percentCompleted).build()
-                                )
-                            }
-//                            out?.bufferedWriter()
-                            out?.write(buffer)
-                        }
+        outputStream.use { out ->
+            deferredFiles.forEach { fileDeferred ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var bytesRead: Int
+                fileDeferred.await().inputStream().use { inputStream ->
+                    while ((inputStream.read(buffer).also { bytesRead = it }) > 0) {
+                        out.write(buffer, 0, bytesRead)
                     }
                 }
             }
@@ -179,34 +178,36 @@ class FileDownloadWorker(
     }
 
     private suspend fun copyInputStreamToOutputStream(
-        inputStream: InputStream,
-        outputStream: OutputStream,
-        contentLength: Long= 0L
+        input: InputStream,
+        output: OutputStream,
+        contentLength: Long = 0L
     ) {
         println("okhttp contentLength: $contentLength")
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var bytesRead: Int
         var totalBytesRead: Long = 0
-        outputStream.use { out ->
-            while ((inputStream.read(buffer).also { bytesRead = it }) > 0) {
-                if (contentLength > 0) {
-                    totalBytesRead += bytesRead
-                    val percentCompleted = ((totalBytesRead * 100 / contentLength)).toInt()
-                    setProgress(
-                        Data.Builder().putInt("progress", percentCompleted).build()
-                    )
+        input.use { inputStream ->
+            output.use { outputStream ->
+                while ((inputStream.read(buffer).also { bytesRead = it }) > 0) {
+                    if (contentLength > 0) {
+                        totalBytesRead += bytesRead
+                        val percentCompleted = ((totalBytesRead * 100 / contentLength)).toInt()
+                        setProgress(
+                            Data.Builder().putInt("progress", percentCompleted).build()
+                        )
+                    }
+                    outputStream.write(buffer, 0, bytesRead)
                 }
-                out.write(buffer, 0, bytesRead)
             }
         }
     }
 
 
-    private val minBytePart = 100000L
+    private val minBytePart = 1000000L
 
-    private fun getMaxThreads(abcd: Long): Int {
+    private fun getMaxThreads(contentLength: Long): Int {
         val maxThreads = 10
-        val divisions: Int = abcd.floorDiv(maxThreads).toInt()
+        val divisions: Int = contentLength.floorDiv(maxThreads).toInt()
         return if (divisions > maxThreads) maxThreads else divisions
     }
 
