@@ -1,6 +1,5 @@
 package com.anand.advancedownloadmanager
 
-import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -8,12 +7,17 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import android.webkit.MimeTypeMap
 import androidx.core.net.toUri
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_DOWNLOAD_URL
+import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PART_INDEX
+import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PROGRESS
+import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_TOTAL_PARTS
+import com.anand.advancedownloadmanager.FileUtils.getMaxThreads
+import com.anand.advancedownloadmanager.FileUtils.MIN_BYTES_PER_FILE_PART
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,7 +29,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.Locale
 
 
 class FileDownloadWorker(
@@ -60,7 +63,7 @@ class FileDownloadWorker(
         context: Context
     ): Uri? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val mimeType = getMimeType(fileUrl.toUri())
+            val mimeType = FileUtils.getMimeType(fileUrl.toUri(), context)
             println("mimeType: $mimeType")
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -110,13 +113,17 @@ class FileDownloadWorker(
         val contentLengthFromHeadResponse =
             headResponse.headers["Content-Length"]?.toLongOrNull() ?: 0L
         val acceptRange = headResponse.headers["Accept-Ranges"]
-
+        println("contentLengthFromHeadResponse: $contentLengthFromHeadResponse")
         if (contentLengthFromHeadResponse > 0L && acceptRange != "none") {
             println("contentLengthFromHeadResponse $contentLengthFromHeadResponse")
             val maxThreads = getMaxThreads(contentLengthFromHeadResponse)
-            val inputStreams = mutableListOf<InputStream>()
-            var contentLength = 0L
             val files = mutableListOf<Deferred<File>>()
+            setProgress(
+                Data.Builder().putAll(buildMap<String, Any> {
+                    KEY_FILE_DOWNLOAD_URL to fileUrl
+                    KEY_FILE_TOTAL_PARTS to maxThreads
+                }).build()
+            )
             outputStream.use {
                 withContext(Dispatchers.IO) {
                     for (i in 0 until maxThreads) {
@@ -126,15 +133,21 @@ class FileDownloadWorker(
                                 Request.Builder().url(fileUrl).addHeader("Range",
                                     buildString {
                                         append("bytes=")
-                                        append(i * minBytePart)
+                                        append(i * MIN_BYTES_PER_FILE_PART)
                                         append("-")
-                                        if (i != maxThreads - 1) append(((i + 1) * minBytePart) - 1)
+                                        if (i != maxThreads - 1) append(((i + 1) * MIN_BYTES_PER_FILE_PART) - 1)
                                     })
                                     .build()
                             val response: Response = client.newCall(request).execute()
                             println("downloadAndSaveFileOkHttp: $i api started")
                             response.body?.let {
-                                copyInputStreamToOutputStream(it.byteStream(), file.outputStream())
+                                copyInputStreamToOutputStream(
+                                    input = it.byteStream(),
+                                    output = file.outputStream(),
+                                    fileUrl = fileUrl,
+                                    contentLength = it.contentLength(),
+                                    filePartIndex = i,
+                                )
                             }
                             return@async file
                         }
@@ -151,9 +164,10 @@ class FileDownloadWorker(
             response.body?.byteStream()?.let {
                 outputStream?.let { out ->
                     copyInputStreamToOutputStream(
-                        it,
-                        out,
-                        contentLength
+                        input = it,
+                        output = out,
+                        fileUrl = fileUrl,
+                        contentLength = contentLength
                     )
                 }
             }
@@ -180,7 +194,9 @@ class FileDownloadWorker(
     private suspend fun copyInputStreamToOutputStream(
         input: InputStream,
         output: OutputStream,
-        contentLength: Long = 0L
+        fileUrl: String,
+        contentLength: Long = 0L,
+        filePartIndex: Int = 0,
     ) {
         println("okhttp contentLength: $contentLength")
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -193,35 +209,16 @@ class FileDownloadWorker(
                         totalBytesRead += bytesRead
                         val percentCompleted = ((totalBytesRead * 100 / contentLength)).toInt()
                         setProgress(
-                            Data.Builder().putInt("progress", percentCompleted).build()
+                            Data.Builder()
+                                .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
+                                .putInt(KEY_FILE_PROGRESS, percentCompleted)
+                                .putInt(KEY_FILE_PART_INDEX, filePartIndex)
+                                .build()
                         )
                     }
                     outputStream.write(buffer, 0, bytesRead)
                 }
             }
         }
-    }
-
-
-    private val minBytePart = 1000000L
-
-    private fun getMaxThreads(contentLength: Long): Int {
-        val maxThreads = 10
-        val divisions: Int = contentLength.floorDiv(maxThreads).toInt()
-        return if (divisions > maxThreads) maxThreads else divisions
-    }
-
-    private fun getMimeType(uri: Uri): String? {
-        val mimeType: String?
-        if (ContentResolver.SCHEME_CONTENT == uri.scheme) {
-            val cr: ContentResolver = context.contentResolver
-            mimeType = cr.getType(uri)
-        } else {
-            val fileExtension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
-            mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(
-                fileExtension.lowercase(Locale.getDefault())
-            )
-        }
-        return mimeType
     }
 }

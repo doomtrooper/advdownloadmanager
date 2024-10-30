@@ -20,8 +20,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.work.WorkManager
 import com.anand.advancedownloadmanager.ui.theme.AdvanceDownloadManagerTheme
 
@@ -50,9 +51,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                     url = listOf(
                                         "https://filesampleshub.com/download/video/mp4/sample3.mp4",
-//                                        "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
-//                                        "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
-//                                        "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf"
+                                        "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
+                                        "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
+                                        "https://tourism.gov.in/sites/default/files/2019-04/dummy-pdf_2.pdf"
                                     ).random()
                                 )
                             )
@@ -76,13 +77,18 @@ class MainActivity : ComponentActivity() {
         ) {
             LazyColumn {
                 items(homeUiState.files.size) {
+                    Text(
+                        "Welcome to Advance Download Manager",
+                        color = Color.Black,
+                        fontSize = 20.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                     Box(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column {
                             Text(text = homeUiState.files[it].name)
                             Text(text = homeUiState.files[it].status.name)
-                            Text(text = homeUiState.files[it].progress.toString())
                         }
                     }
                 }

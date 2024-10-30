@@ -1,15 +1,12 @@
 package com.anand.advancedownloadmanager
 
-import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.Operation
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,27 +45,61 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
             workManager.getWorkInfoByIdFlow(fileDownloadWorker.id).collect { workInfo: WorkInfo ->
                 uiState.update {
                     println(workInfo)
-                    uiState.value.copy(
-                        files = buildList {
-                            addAll(uiState.value.files.filter { it.name != file.name })
-                            add(
-                                file.copy(
-                                    status = workInfo.state,
-                                    progress = workInfo.progress.getInt("progress", 0)
-                                )
+                    val fileDownloadUpdate = FileUtils.adapter(workInfo.progress.keyValueMap)
+                    println(fileDownloadUpdate)
+                    when (fileDownloadUpdate) {
+                        is FileDownloadUpdatePartCount -> {
+                            return@update uiState.value.copy(
+                                files = uiState.value.files.toMutableList().apply {
+                                    forEach { file: File ->
+                                        run {
+                                            if (file.url == fileDownloadUpdate.fileUrl) {
+                                                file.partCount = fileDownloadUpdate.totalParts
+                                            }
+                                        }
+                                    }
+                                }
                             )
                         }
-                    )
+
+                        is FileDownloadUpdateProgress -> {
+                            return@update uiState.value.copy(
+                                files = uiState.value.files.toMutableList().apply {
+                                    forEach { file: File ->
+                                        run {
+                                            if (file.url == fileDownloadUpdate.fileUrl) {
+                                                val fileDownloadProgress = FileDownloadProgress(
+                                                    fileDownloadUpdate.filePartIndex,
+                                                    fileDownloadUpdate.percentCompleted
+                                                )
+                                                file.progress?.run {
+                                                    add(
+                                                        fileDownloadProgress
+                                                    )
+                                                } ?: run {
+                                                    file.progress =
+                                                        mutableSetOf(fileDownloadProgress)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        FileDownloadUpdateUnSupported -> return@update uiState.value.copy(
+                            files = buildList {
+                                addAll(uiState.value.files.filter { it.name != file.name })
+                                add(
+                                    file.copy(
+                                        status = workInfo.state,
+                                    )
+                                )
+                            }
+                        )
+                    }
                 }
             }
-//            operation.state.asFlow().collect {
-//                when (it) {
-//                    Operation.SUCCESS -> uiState.update {
-//                        uiState.value.files.add(file)
-//                        uiState.value.copy(files = uiState.value.files)
-//                    }
-//                }
-//            }
         }
     }
 }
