@@ -16,8 +16,9 @@ import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_DOWNLOAD_URL
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PART_INDEX
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PROGRESS
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_TOTAL_PARTS
-import com.anand.advancedownloadmanager.FileUtils.getMaxThreads
+import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_WEIGHT
 import com.anand.advancedownloadmanager.FileUtils.MIN_BYTES_PER_FILE_PART
+import com.anand.advancedownloadmanager.FileUtils.getMaxThreads
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -89,7 +90,10 @@ class FileDownloadWorker(
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
                 fileName
             )
-            val fileOutputStream = FileOutputStream(target)
+            val fileOutputStream =
+                withContext(Dispatchers.IO) {
+                    FileOutputStream(target)
+                }
             downloadAndSaveFileOkHttp(
                 fileUrl,
                 fileOutputStream,
@@ -119,10 +123,10 @@ class FileDownloadWorker(
             val maxThreads = getMaxThreads(contentLengthFromHeadResponse)
             val files = mutableListOf<Deferred<File>>()
             setProgress(
-                Data.Builder().putAll(buildMap<String, Any> {
-                    KEY_FILE_DOWNLOAD_URL to fileUrl
-                    KEY_FILE_TOTAL_PARTS to maxThreads
-                }).build()
+                Data.Builder()
+                    .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
+                    .putInt(KEY_FILE_TOTAL_PARTS, maxThreads)
+                    .build()
             )
             outputStream.use {
                 withContext(Dispatchers.IO) {
@@ -147,6 +151,7 @@ class FileDownloadWorker(
                                     fileUrl = fileUrl,
                                     contentLength = it.contentLength(),
                                     filePartIndex = i,
+                                    fileTotalContentLength = contentLengthFromHeadResponse
                                 )
                             }
                             return@async file
@@ -158,6 +163,12 @@ class FileDownloadWorker(
             }
             println("done")
         } else {
+            setProgress(
+                Data.Builder()
+                    .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
+                    .putInt(KEY_FILE_TOTAL_PARTS, 1)
+                    .build()
+            )
             val request: Request = Request.Builder().url(fileUrl).build()
             val response: Response = client.newCall(request).execute()
             val contentLength = response.body?.contentLength() ?: 0L
@@ -167,7 +178,8 @@ class FileDownloadWorker(
                         input = it,
                         output = out,
                         fileUrl = fileUrl,
-                        contentLength = contentLength
+                        contentLength = contentLength,
+                        fileTotalContentLength = contentLength
                     )
                 }
             }
@@ -197,27 +209,44 @@ class FileDownloadWorker(
         fileUrl: String,
         contentLength: Long = 0L,
         filePartIndex: Int = 0,
+        fileTotalContentLength: Long,
     ) {
         println("okhttp contentLength: $contentLength")
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var bytesRead: Int
         var totalBytesRead: Long = 0
+        var lastPercentCompleted = 0.0f
         input.use { inputStream ->
             output.use { outputStream ->
+                val weight = ((contentLength * 100f / fileTotalContentLength))
                 while ((inputStream.read(buffer).also { bytesRead = it }) > 0) {
                     if (contentLength > 0) {
                         totalBytesRead += bytesRead
-                        val percentCompleted = ((totalBytesRead * 100 / contentLength)).toInt()
-                        setProgress(
-                            Data.Builder()
-                                .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
-                                .putInt(KEY_FILE_PROGRESS, percentCompleted)
-                                .putInt(KEY_FILE_PART_INDEX, filePartIndex)
-                                .build()
-                        )
+                        val percentCompleted: Float = (100f * totalBytesRead) / contentLength
+                        if (weight > 0.0f && lastPercentCompleted != percentCompleted) {
+                            lastPercentCompleted = percentCompleted
+                            if (filePartIndex==3) println("[FDM] index: $filePartIndex progress: $percentCompleted")
+                            setProgress(
+                                Data.Builder()
+                                    .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
+                                    .putFloat(KEY_FILE_PROGRESS, percentCompleted)
+                                    .putInt(KEY_FILE_PART_INDEX, filePartIndex)
+                                    .putFloat(KEY_FILE_WEIGHT, weight)
+                                    .build()
+                            )
+                        }
                     }
                     outputStream.write(buffer, 0, bytesRead)
                 }
+//                if (filePartIndex==3) println("[FDM] index: $filePartIndex progress: completed")
+                setProgress(
+                    Data.Builder()
+                        .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
+                        .putFloat(KEY_FILE_PROGRESS, 100.0f)
+                        .putInt(KEY_FILE_PART_INDEX, filePartIndex)
+                        .putFloat(KEY_FILE_WEIGHT, weight)
+                        .build()
+                )
             }
         }
     }

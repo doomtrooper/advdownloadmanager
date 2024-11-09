@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
     private var uiState = MutableStateFlow(AdmHomeUiState())
@@ -36,67 +37,79 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
             )
             uiState.update {
                 uiState.value.copy(
-                    files = buildList {
-                        addAll(uiState.value.files)
-                        add(file)
-                    }
+                    files = uiState.value.files
+                        .toMutableList()
+                        .apply { add(file.copy(workerId = fileDownloadWorker.id)) }
                 )
             }
+            UUID.fromString(fileDownloadWorker.id.toString())
             workManager.getWorkInfoByIdFlow(fileDownloadWorker.id).collect { workInfo: WorkInfo ->
                 uiState.update {
-                    println(workInfo)
-                    val fileDownloadUpdate = FileUtils.adapter(workInfo.progress.keyValueMap)
-                    println(fileDownloadUpdate)
+                    val fileDownloadUpdate =
+                        FileUtils.adapter(workInfo.progress.keyValueMap, workInfo)
                     when (fileDownloadUpdate) {
                         is FileDownloadUpdatePartCount -> {
+                            val filteredList = uiState.value.files.toMutableList()
+                                .filter { it.workerId != fileDownloadUpdate.workerId }
+                            val matchedFile = uiState.value.files
+                                .find { it.workerId == fileDownloadUpdate.workerId }
+                                ?.copy(partCount = fileDownloadUpdate.totalParts)
+                            val files = buildList {
+                                addAll(filteredList)
+                                matchedFile?.let { add(it) }
+                            }
                             return@update uiState.value.copy(
-                                files = uiState.value.files.toMutableList().apply {
-                                    forEach { file: File ->
-                                        run {
-                                            if (file.url == fileDownloadUpdate.fileUrl) {
-                                                file.partCount = fileDownloadUpdate.totalParts
-                                            }
-                                        }
-                                    }
-                                }
+                                files = files.sortedBy { it.startTime }
                             )
                         }
 
                         is FileDownloadUpdateProgress -> {
-                            return@update uiState.value.copy(
-                                files = uiState.value.files.toMutableList().apply {
-                                    forEach { file: File ->
-                                        run {
-                                            if (file.url == fileDownloadUpdate.fileUrl) {
-                                                val fileDownloadProgress = FileDownloadProgress(
-                                                    fileDownloadUpdate.filePartIndex,
-                                                    fileDownloadUpdate.percentCompleted
-                                                )
-                                                file.progress?.run {
-                                                    add(
-                                                        fileDownloadProgress
-                                                    )
-                                                } ?: run {
-                                                    file.progress =
-                                                        mutableSetOf(fileDownloadProgress)
-                                                }
-                                            }
-                                        }
+                            val filteredList = uiState.value.files
+                                .toMutableList()
+                                .filter { it.workerId != fileDownloadUpdate.workerId }
+                            val matchedFile = uiState.value.files
+                                .find { it.workerId == fileDownloadUpdate.workerId }
+                                ?.let {
+                                    val fileDownloadProgress = FileDownloadProgress(
+                                        fileDownloadUpdate.filePartIndex,
+                                        fileDownloadUpdate.percentCompleted,
+                                        fileDownloadUpdate.weight
+                                    )
+//                                        if (fileDownloadProgress.partIndex==3) println("[ADM-VM] $fileDownloadProgress")
+                                    val filterProgress = it.progress.toList()
+                                        .filter { p -> p.partIndex != fileDownloadProgress.partIndex }
+                                    val buildList = buildList {
+                                        addAll(filterProgress)
+                                        add(fileDownloadProgress)
                                     }
+                                    it.copy(progress = buildList)
                                 }
+                            val files = buildList {
+                                addAll(filteredList)
+                                matchedFile?.let {
+                                    add(it)
+                                }
+                            }
+                            uiState.value.copy(
+                                files = files.sortedBy { it.startTime }
                             )
                         }
 
-                        FileDownloadUpdateUnSupported -> return@update uiState.value.copy(
-                            files = buildList {
-                                addAll(uiState.value.files.filter { it.name != file.name })
-                                add(
-                                    file.copy(
-                                        status = workInfo.state,
-                                    )
-                                )
+                        is FileDownloadUpdateUnSupported -> {
+                            val filteredList = uiState.value.files
+                                .toMutableList()
+                                .filter { it.workerId != fileDownloadUpdate.workerId }
+                            val matchedFile = uiState.value.files
+                                .find { it.workerId == fileDownloadUpdate.workerId }
+                                ?.copy(status = fileDownloadUpdate.state)
+                            val files = buildList {
+                                addAll(filteredList)
+                                matchedFile?.let { add(it) }
                             }
-                        )
+                            return@update uiState.value.copy(
+                                files = files.sortedBy { it.startTime }
+                            )
+                        }
                     }
                 }
             }
