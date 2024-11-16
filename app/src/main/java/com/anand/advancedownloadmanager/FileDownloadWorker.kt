@@ -17,7 +17,6 @@ import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PART_INDEX
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PROGRESS
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_TOTAL_PARTS
 import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_WEIGHT
-import com.anand.advancedownloadmanager.FileUtils.MIN_BYTES_PER_FILE_PART
 import com.anand.advancedownloadmanager.FileUtils.getMaxThreads
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -120,7 +119,7 @@ class FileDownloadWorker(
         println("contentLengthFromHeadResponse: $contentLengthFromHeadResponse")
         if (contentLengthFromHeadResponse > 0L && acceptRange != "none") {
             println("contentLengthFromHeadResponse $contentLengthFromHeadResponse")
-            val maxThreads = getMaxThreads(contentLengthFromHeadResponse)
+            val (maxThreads, bytesPerThread) = getMaxThreads(contentLengthFromHeadResponse)
             val files = mutableListOf<Deferred<File>>()
             setProgress(
                 Data.Builder()
@@ -137,9 +136,11 @@ class FileDownloadWorker(
                                 Request.Builder().url(fileUrl).addHeader("Range",
                                     buildString {
                                         append("bytes=")
-                                        append(i * MIN_BYTES_PER_FILE_PART)
+                                        append(bytesPerThread.times(i))
                                         append("-")
-                                        if (i != maxThreads - 1) append(((i + 1) * MIN_BYTES_PER_FILE_PART) - 1)
+                                        if (i != maxThreads - 1) {
+                                            append(bytesPerThread.times(i.inc()).dec())
+                                        }
                                     })
                                     .build()
                             val response: Response = client.newCall(request).execute()
@@ -223,9 +224,9 @@ class FileDownloadWorker(
                     if (contentLength > 0) {
                         totalBytesRead += bytesRead
                         val percentCompleted: Float = (100f * totalBytesRead) / contentLength
-                        if (weight > 0.0f && lastPercentCompleted != percentCompleted) {
+                        if (weight > 0.0f && percentCompleted.minus(lastPercentCompleted) > 1.0) {
                             lastPercentCompleted = percentCompleted
-                            if (filePartIndex==3) println("[FDM] index: $filePartIndex progress: $percentCompleted")
+                            println("[FDM] index: $filePartIndex weight: $weight  progress: $percentCompleted ")
                             setProgress(
                                 Data.Builder()
                                     .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)
@@ -238,7 +239,7 @@ class FileDownloadWorker(
                     }
                     outputStream.write(buffer, 0, bytesRead)
                 }
-//                if (filePartIndex==3) println("[FDM] index: $filePartIndex progress: completed")
+                println("[FDM] index: $filePartIndex progress: completed")
                 setProgress(
                     Data.Builder()
                         .putString(KEY_FILE_DOWNLOAD_URL, fileUrl)

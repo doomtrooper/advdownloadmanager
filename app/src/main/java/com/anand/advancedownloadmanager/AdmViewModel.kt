@@ -30,7 +30,7 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
                 .setConstraints(constraints)
                 .setInputData(data.build())
                 .build()
-            val operation = workManager.enqueueUniqueWork(
+            workManager.enqueueUniqueWork(
                 "oneFileDownloadWork_${file.name}",
                 ExistingWorkPolicy.REPLACE,
                 fileDownloadWorker
@@ -44,6 +44,7 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
             }
             UUID.fromString(fileDownloadWorker.id.toString())
             workManager.getWorkInfoByIdFlow(fileDownloadWorker.id).collect { workInfo: WorkInfo ->
+                println("[ADM-VM] $workInfo")
                 uiState.update {
                     val fileDownloadUpdate =
                         FileUtils.adapter(workInfo.progress.keyValueMap, workInfo)
@@ -75,9 +76,9 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
                                         fileDownloadUpdate.percentCompleted,
                                         fileDownloadUpdate.weight
                                     )
-//                                        if (fileDownloadProgress.partIndex==3) println("[ADM-VM] $fileDownloadProgress")
                                     val filterProgress = it.progress.toList()
                                         .filter { p -> p.partIndex != fileDownloadProgress.partIndex }
+//                                    it.progress.toList().find { p -> p.partIndex == fileDownloadProgress.partIndex }?.copy(progress = fileDownloadUpdate.percentCompleted>p)
                                     val buildList = buildList {
                                         addAll(filterProgress)
                                         add(fileDownloadProgress)
@@ -124,4 +125,6 @@ class AdmViewModelFactory(private val workManager: WorkManager) : ViewModelProvi
     }
 }
 
-data class AdmHomeUiState(val files: List<File> = listOf())
+data class AdmHomeUiState(
+    val files: List<File> = emptyList()
+)

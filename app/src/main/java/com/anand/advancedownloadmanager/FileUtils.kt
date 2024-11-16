@@ -6,10 +6,11 @@ import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.work.WorkInfo
 import java.util.Locale
+import kotlin.math.ceil
 
 object FileUtils {
 
-    const val MIN_BYTES_PER_FILE_PART = 1000000L
+    const val MIN_BYTES_PER_FILE_PART = DEFAULT_BUFFER_SIZE * 1024 // 1Mb
     const val KEY_FILE_PROGRESS = "progress"
     const val KEY_FILE_WEIGHT = "weight"
     const val KEY_FILE_DOWNLOAD_URL = "fileDownloadUrl"
@@ -31,10 +32,12 @@ object FileUtils {
         return mimeType
     }
 
-    fun getMaxThreads(contentLength: Long): Int {
-        val maxThreads = 10
-        val divisions: Int = contentLength.floorDiv(maxThreads).toInt()
-        return if (divisions > maxThreads) maxThreads else divisions
+    fun getMaxThreads(contentLength: Long, maxThreads: Int = 10): Pair<Int, Long> {
+        val requiredThreads: Int =
+            ceil(contentLength.toDouble().div(MIN_BYTES_PER_FILE_PART)).toInt()
+        val threads = if (requiredThreads > maxThreads) maxThreads else requiredThreads
+        val bytesPerThread = ceil((contentLength.toDouble()).div(threads)).toLong()
+        return threads to bytesPerThread
     }
 
     fun adapter(keyValueMap: Map<String, Any>, workInfo: WorkInfo): FileDownloadUpdate {
