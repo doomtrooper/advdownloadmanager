@@ -1,4 +1,4 @@
-package com.anand.advancedownloadmanager
+package com.anand.advancedownloadmanager.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable

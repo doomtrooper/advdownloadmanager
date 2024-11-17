@@ -1,4 +1,4 @@
-package com.anand.advancedownloadmanager
+package com.anand.advancedownloadmanager.workers
 
 import android.content.ContentValues
 import android.content.Context
@@ -12,12 +12,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_DOWNLOAD_URL
-import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PART_INDEX
-import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_PROGRESS
-import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_TOTAL_PARTS
-import com.anand.advancedownloadmanager.FileUtils.KEY_FILE_WEIGHT
-import com.anand.advancedownloadmanager.FileUtils.getMaxThreads
+import com.anand.advancedownloadmanager.utils.FileParams
+import com.anand.advancedownloadmanager.utils.FileUtils
+import com.anand.advancedownloadmanager.utils.FileUtils.KEY_FILE_DOWNLOAD_URL
+import com.anand.advancedownloadmanager.utils.FileUtils.KEY_FILE_PART_INDEX
+import com.anand.advancedownloadmanager.utils.FileUtils.KEY_FILE_PROGRESS
+import com.anand.advancedownloadmanager.utils.FileUtils.KEY_FILE_TOTAL_PARTS
+import com.anand.advancedownloadmanager.utils.FileUtils.KEY_FILE_WEIGHT
+import com.anand.advancedownloadmanager.utils.FileUtils.getMaxThreads
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async

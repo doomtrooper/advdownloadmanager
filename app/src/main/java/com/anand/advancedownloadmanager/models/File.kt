@@ -1,4 +1,4 @@
-package com.anand.advancedownloadmanager
+package com.anand.advancedownloadmanager.models
 
 import androidx.work.WorkInfo
 import java.util.UUID

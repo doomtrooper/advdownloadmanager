@@ -1,10 +1,14 @@
-package com.anand.advancedownloadmanager
+package com.anand.advancedownloadmanager.utils
 
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.work.WorkInfo
+import com.anand.advancedownloadmanager.models.FileDownloadUpdate
+import com.anand.advancedownloadmanager.models.FileDownloadUpdatePartCount
+import com.anand.advancedownloadmanager.models.FileDownloadUpdateProgress
+import com.anand.advancedownloadmanager.models.FileDownloadUpdateUnSupported
 import java.util.Locale
 import kotlin.math.ceil
 

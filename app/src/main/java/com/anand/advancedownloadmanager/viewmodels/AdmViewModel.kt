@@ -1,4 +1,4 @@
-package com.anand.advancedownloadmanager
+package com.anand.advancedownloadmanager.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -9,6 +9,14 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.anand.advancedownloadmanager.models.File
+import com.anand.advancedownloadmanager.models.FileDownloadProgress
+import com.anand.advancedownloadmanager.models.FileDownloadUpdatePartCount
+import com.anand.advancedownloadmanager.models.FileDownloadUpdateProgress
+import com.anand.advancedownloadmanager.models.FileDownloadUpdateUnSupported
+import com.anand.advancedownloadmanager.utils.FileParams
+import com.anand.advancedownloadmanager.utils.FileUtils
+import com.anand.advancedownloadmanager.workers.FileDownloadWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
