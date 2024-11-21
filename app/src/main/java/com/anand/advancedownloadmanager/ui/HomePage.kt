@@ -71,70 +71,7 @@ fun HomePage(
                 )
             }
             items(homeUiState.files.size) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                ) {
-                    ElevatedCard(
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 6.dp
-                        ),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Gray,
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        Box(modifier = Modifier.padding(10.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(1.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.8f)
-                                ) {
-                                    Text(
-                                        text = homeUiState.files[it].name,
-                                        color = Color.White,
-                                        fontSize = 20.sp,
-                                        fontFamily = FontFamily.SansSerif,
-                                        lineHeight = 20.sp
-                                    )
-                                    Text(
-                                        text = homeUiState.files[it].status.name,
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        lineHeight = 20.sp,
-                                        fontFamily = FontFamily.SansSerif,
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(50.dp)
-                                ) {
-                                    if (homeUiState.files[it].progress.isNotEmpty()) {
-                                        SegmentedCircularProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(5.dp),
-                                            segments = homeUiState.files[it].progress.map { progress ->
-                                                CircularProgressIndicatorSegment(
-                                                    segment = progress.partWeight,
-                                                    segmentProgress = progress.progress,
-                                                    segmentIndex = progress.partIndex,
-                                                    index = it
-                                                )
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                DownloadsItem(homeUiState, it)
             }
             item {
                 Box(
@@ -142,6 +79,77 @@ fun HomePage(
                         .height(bottomPadding)
                         .fillMaxWidth()
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadsItem(
+    homeUiState: AdmHomeUiState,
+    it: Int
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        ElevatedCard(
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 6.dp
+            ),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.Gray,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Box(modifier = Modifier.padding(10.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(1.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(0.8f)
+                    ) {
+                        Text(
+                            text = homeUiState.files[it].name,
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontFamily = FontFamily.SansSerif,
+                            lineHeight = 20.sp
+                        )
+                        Text(
+                            text = homeUiState.files[it].status.name,
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            lineHeight = 20.sp,
+                            fontFamily = FontFamily.SansSerif,
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        if (homeUiState.files[it].progress.isNotEmpty()) {
+                            SegmentedCircularProgressIndicator(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(5.dp),
+                                segments = homeUiState.files[it].progress.map { progress ->
+                                    CircularProgressIndicatorSegment(
+                                        segment = progress.partWeight,
+                                        segmentProgress = progress.progress,
+                                        segmentIndex = progress.partIndex,
+                                        index = it
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

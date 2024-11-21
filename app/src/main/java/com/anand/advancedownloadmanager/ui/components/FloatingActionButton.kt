@@ -10,19 +10,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import com.anand.advancedownloadmanager.models.File
-import com.anand.advancedownloadmanager.viewmodels.AdmViewModel
 
 @Composable
 fun FloatingActionButton(
     isScrolling: Boolean,
-    admViewModel: AdmViewModel,
-    fabHeight: Dp
+    fabHeight: Dp,
+    onCLick: (file: File) -> Unit
 ) {
     ExtendedFloatingActionButton(
         modifier = Modifier.height(fabHeight),
         expanded = isScrolling.not(),
         onClick = {
-            admViewModel.startDownloadingFile(
+            onCLick(
                 File(
                     name = buildString {
                         append("test_file_")
