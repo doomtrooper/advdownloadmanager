@@ -45,12 +45,14 @@ class MainActivity : ComponentActivity() {
                     FloatingActionButton(
                         isScrolling,
                         EXTENDED_FAB_HEIGHT
-                    ) { file: File -> showBottomSheet = true }
+                    ) { showBottomSheet = true }
                 }) { innerPadding ->
                     val homeUiStateState by admViewModel.uiStateFlow.collectAsState()
                     HomePage(homeUiStateState, innerPadding, EXTENDED_FAB_HEIGHT, listState)
                     if (showBottomSheet) {
-                        InputBottomSheet { abc: Boolean -> showBottomSheet = abc }
+                        InputBottomSheet({ abc: Boolean ->
+                            showBottomSheet = abc
+                        }) { file: File -> admViewModel.startDownloadingFile(file) }
                     }
                 }
             }
