@@ -2,11 +2,9 @@ package com.anand.advancedownloadmanager.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ModalBottomSheet
@@ -62,6 +60,7 @@ fun InputBottomSheet(bottomSheetToggle: (state: Boolean) -> Unit, onCLick: (file
                                 append(System.currentTimeMillis())
                             },
                             url = listOf(
+                                "https://sample-videos.com/video321/mp4/240/big_buck_bunny_240p_30mb.mp4",
                                 "https://filesampleshub.com/download/video/mp4/sample3.mp4",
                                 "https://videos.pexels.com/video-files/10189089/10189089-hd_1920_1080_25fps.mp4",
                                 "https://www.learningcontainer.com/wp-content/uploads/2019/09/sample-pdf-download-10-mb.pdf",
