@@ -11,6 +11,11 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.anand.advancedownloadmanager.models.File
 import com.anand.advancedownloadmanager.models.FileDownloadUpdate
+import com.anand.advancedownloadmanager.redux.AdmStore
+import com.anand.advancedownloadmanager.viewmodels.reducers.FileDownloadUpdatePartCountReducer
+import com.anand.advancedownloadmanager.viewmodels.reducers.FileDownloadUpdateProgressReducer
+import com.anand.advancedownloadmanager.viewmodels.reducers.FileDownloadUpdateUnSupportedReducer
+import com.anand.advancedownloadmanager.redux.IReducer
 import com.anand.advancedownloadmanager.utils.FileParams
 import com.anand.advancedownloadmanager.utils.FileUtils
 import com.anand.advancedownloadmanager.workers.FileDownloadWorker

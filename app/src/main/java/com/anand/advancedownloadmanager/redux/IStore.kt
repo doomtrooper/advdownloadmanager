@@ -1,12 +1,16 @@
-package com.anand.advancedownloadmanager.viewmodels
+package com.anand.advancedownloadmanager.redux
 
 import com.anand.advancedownloadmanager.models.FileDownloadUpdate
+import com.anand.advancedownloadmanager.viewmodels.AdmHomeUiState
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 interface IStore<S, A> {
     fun getState(): S
     fun dispatch(action: A)
+    fun subscribe(): StateFlow<S>
 }
 
 
@@ -17,6 +21,10 @@ class AdmStore(
 
     override fun getState(): AdmHomeUiState {
         return stateFlow.value
+    }
+
+    override fun subscribe(): StateFlow<AdmHomeUiState> {
+        return stateFlow.asStateFlow()
     }
 
     override fun dispatch(action: FileDownloadUpdate) {
