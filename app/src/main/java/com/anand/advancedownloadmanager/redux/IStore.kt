@@ -17,8 +17,9 @@ interface IStore<S, A> {
 class AdmStore(
     private var stateFlow: MutableStateFlow<AdmHomeUiState>,
     private val reducers: List<IReducer<AdmHomeUiState, FileDownloadUpdate>>,
-    private val middlewares: List<IMiddleware<AdmHomeUiState, FileDownloadUpdate>> = emptyList()
+    private val middlewares: List<IMiddleware<FileDownloadUpdate, AdmHomeUiState>> = emptyList()
 ) : IStore<AdmHomeUiState, FileDownloadUpdate> {
+
 
     override fun getState(): AdmHomeUiState {
         return stateFlow.value
@@ -29,22 +30,30 @@ class AdmStore(
     }
 
     override fun dispatch(action: FileDownloadUpdate) {
-        loggingMiddleware(::getState, ::dispatch)
-        val newAction = middlewares.fold(action) { a1, middleware ->
-            middleware.apply(
-                ::getState,
-                ::dispatch,
-                a1
-            )
-        }
+        val admHomeUiState = loggingMiddleware(
+            ::getState,
+            ::dispatch
+        ).invoke(middlewares[0]::apply).invoke(action)
+//        val newAction = middlewares.fold(action) { a1, middleware ->
+//            middleware.apply(
+//                ::getState,
+//                ::dispatch,
+//                a1
+//            )
+//        }
         for (reducer in reducers) {
-            stateFlow.update { reducer.reduce(it, newAction) }
+            stateFlow.update { reducer.reduce(it, action) }
         }
+
+        reducers.fold(getState()) { state, reducer -> reducer.reduce(state, action) }
     }
 
 }
 
-fun <S, A> loggingMiddleware(getState: () -> S, dispatch: (A) -> Unit): (((A) -> S) -> (A) -> S) {
+fun <S, A> loggingMiddleware(
+    getState: () -> S,
+    dispatch: (A) -> Unit
+): (((A) -> S) -> (A) -> S) {
     return fun(next: (A) -> S): (A) -> S {
         return fun(action: A): S {
             // Do anything here: pass the action onwards with next(action),
