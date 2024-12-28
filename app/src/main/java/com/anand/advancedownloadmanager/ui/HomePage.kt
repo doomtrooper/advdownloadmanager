@@ -64,24 +64,25 @@ fun HomePage(
                 )
             }
             item {
-                Box(
-                    modifier = Modifier
-                        .height(10.dp)
-                        .fillMaxWidth()
-                )
+                FillerComposable(10.dp)
             }
             items(homeUiState.files.size) {
                 DownloadsItem(homeUiState, it)
             }
             item {
-                Box(
-                    modifier = Modifier
-                        .height(bottomPadding)
-                        .fillMaxWidth()
-                )
+                FillerComposable(bottomPadding)
             }
         }
     }
+}
+
+@Composable
+private fun FillerComposable(fillerHeight: Dp) {
+    Box(
+        modifier = Modifier
+            .height(fillerHeight)
+            .fillMaxWidth()
+    )
 }
 
 @Composable
