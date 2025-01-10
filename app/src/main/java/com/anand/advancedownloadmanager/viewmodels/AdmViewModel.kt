@@ -60,9 +60,9 @@ class AdmViewModel(private val workManager: WorkManager) : ViewModel() {
                 )
             }
             UUID.fromString(fileDownloadWorker.id.toString())
-            workManager.getWorkInfoByIdFlow(fileDownloadWorker.id).collect { workInfo: WorkInfo ->
+            workManager.getWorkInfoByIdFlow(fileDownloadWorker.id).collect { workInfo: WorkInfo? ->
                 println("[ADM-VM] $workInfo")
-                store.dispatch(FileUtils.adapter(workInfo.progress.keyValueMap, workInfo))
+                workInfo?.let {  store.dispatch(FileUtils.adapter(it.progress.keyValueMap, workInfo)) }
             }
         }
     }
